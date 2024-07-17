@@ -77,13 +77,20 @@ def make_env(env_id, seed, idx, capture_video, run_name):
             env = gym.make(env_id, render_mode="rgb_array")
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = gym.make(env_id)
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-        env.action_space.seed(seed)
+            env = gym.make(env_id) #否则，创建普通环境
+        env = gym.wrappers.RecordEpisodeStatistics(env) #将环境包装为记录器，以便记录每个回合的统计数据。
+        env.action_space.seed(seed) #设置环境的动作空间的随机种子。
 
         return env
 
-    return thunk
+    # seed 参数的作用是设置环境的随机种子，以确保实验的可重复性。
+    # 具体来说，设置随机种子可以保证每次运行实验时，环境中的随机事件（例如，初始状态、随机动作选择等）都是一致的，从而使得实验结果可以重现。
+    # 随机种子 确保了实验的可重复性，特别是在强化学习中，这对于调试和比较不同算法的性能非常重要。
+    # 例如，如果不设置随机种子，每次运行实验时，环境的初始状态和随机事件可能都会不同，从而导致结果不可重复。
+
+    # 用于创建和初始化环境。这个函数可以在需要的时候调用，以便延迟环境的创建
+    return thunk 
+   
 
 
 # ALGO LOGIC: initialize agent here:
@@ -152,10 +159,14 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
-    q_network = QNetwork(envs).to(device)
+    q_network = QNetwork(envs).to(device) 
+    # 定义了一个神经网络，用于近似 Q 值函数。这个网络负责根据当前状态预测每个可能动作的 Q 值。
+    # envs：传递给 QNetwork 的环境实例，用于获取环境的观察空间和动作空间尺寸。
     optimizer = optim.Adam(q_network.parameters(), lr=args.learning_rate)
-    target_network = QNetwork(envs).to(device)
-    target_network.load_state_dict(q_network.state_dict())
+    target_network = QNetwork(envs).to(device) #与 q_network 结构相同的神经网络，作为目标网络使用。目标网络用于计算目标 Q 值，提供更稳定的训练。
+    target_network.load_state_dict(q_network.state_dict()) #将 Q 网络的参数复制到目标网络中。这样初始化的目标网络与 Q 网络的参数完全相同。
+    # q_network.state_dict()：获取 Q 网络的参数字典
+    # target_network.load_state_dict(...)：将参数字典加载到目标网络中。
 
     rb = ReplayBuffer(
         args.buffer_size,
